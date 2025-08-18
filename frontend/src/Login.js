@@ -7,6 +7,11 @@ export default function Login({ setToken }) {
   const [error, setError] = useState("");
 
   const handleLogin = async () => {
+    if (!username || !password) {
+      setError("Kullanıcı adı ve şifre boş olamaz");
+      return;
+    }
+
     try {
       const res = await axios.post("http://127.0.0.1:5000/login", { username, password });
       localStorage.setItem("token", res.data.token);
@@ -17,11 +22,23 @@ export default function Login({ setToken }) {
   };
 
   return (
-    <div>
-      <input placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} />
-      <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
-      <button onClick={handleLogin}>Giriş Yap</button>
+    <div className="auth-form">
       {error && <p style={{ color: "red" }}>{error}</p>}
+
+      <input
+        type="text"
+        placeholder="E-posta"
+        value={username}
+        onChange={e => setUsername(e.target.value)}
+      />
+      <input
+        type="password"
+        placeholder="Şifre"
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+      />
+
+      <button onClick={handleLogin}>Giriş Yap</button>
     </div>
   );
 }

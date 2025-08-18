@@ -15,18 +15,19 @@ function App() {
           {showRegister ? (
             <>
               <Register setToken={setToken} />
-              <p>
-                Zaten üyeyim?{" "}
+              <div className="form-toggle-wrapper">
+                <p>Zaten üyeyim?</p>
                 <button onClick={() => setShowRegister(false)}>Giriş Yap</button>
-              </p>
+              </div>
+
             </>
           ) : (
             <>
               <Login setToken={setToken} />
-              <p>
-                Hesabın yok mu?{" "}
-                <button onClick={() => setShowRegister(true)}>Kayıt Ol</button>
-              </p>
+                <div className="form-toggle-wrapper">
+                  <p>Hesabın yok mu?</p>
+                  <button onClick={() => setShowRegister(true)}>Kayıt Ol</button>
+                </div>
             </>
           )}
         </>

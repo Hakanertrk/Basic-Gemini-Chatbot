@@ -1,46 +1,62 @@
-import React, { useState } from "react";
+import React, { use, useState } from "react";
 import axios from "axios";
 
-export default function Register({ setToken }) {
-  const [username, setUsername] = useState("");
+export default function Register() {
+
+  const [email, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const handleRegister = async () => {
+  const handleRegister = async (e) => {
+    e.preventDefault(); // Sayfa reload engelle
     setError("");
     setSuccess("");
-    if (!username || !password) {
-      setError("Kullanıcı adı ve şifre boş olamaz");
+
+    if ( !email || !password) {
+      setError("Tüm alanlar zorunludur");
       return;
     }
 
     try {
-      await axios.post("http://127.0.0.1:5000/register", { username, password });
+      const payload = {
+      
+        username: email, // Backend'de username olarak email kullanılıyor
+        password
+      };
+
+      console.log("Gönderilen veri:", payload); // Test için backend'e ne gidecek bak
+
+      await axios.post("http://127.0.0.1:5000/register", payload);
+
       setSuccess("Kayıt başarılı! Giriş yapabilirsiniz.");
+     
       setUsername("");
       setPassword("");
     } catch (err) {
+      console.log(err.response?.data);
       setError(err.response?.data?.error || "Kayıt sırasında hata oluştu");
     }
   };
 
   return (
-    <div>
+    <form onSubmit={handleRegister}>
+      
       <input
+        type="username"
         placeholder="Username"
-        value={username}
+        value={email}
         onChange={e => setUsername(e.target.value)}
       />
       <input
         type="password"
-        placeholder="Password"
+        placeholder="Şifre"
         value={password}
         onChange={e => setPassword(e.target.value)}
       />
-      <button onClick={handleRegister}>Kayıt Ol</button>
+      <button type="submit">Kayıt Ol</button>
       {error && <p style={{ color: "red" }}>{error}</p>}
       {success && <p style={{ color: "green" }}>{success}</p>}
-    </div>
+    </form>
   );
 }

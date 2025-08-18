@@ -36,13 +36,16 @@ def register():
     username = data.get("username")
     password = data.get("password")
 
+    if not username or not password:
+        return jsonify({"error": "Kullanıcı adı ve şifre boş olamaz"}), 400
+
     cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
     if cursor.fetchone():
         return jsonify({"error": "Kullanıcı zaten var"}), 400
 
     hashed_pw = generate_password_hash(password)
     cursor.execute(
-        "INSERT INTO users (username, password) VALUES (%s, %s)",
+        "INSERT INTO users (username, password_hash) VALUES (%s, %s)",
         (username, hashed_pw)
     )
     conn.commit()
@@ -57,7 +60,10 @@ def login():
     username = data.get("username")
     password = data.get("password")
 
-    cursor.execute("SELECT password FROM users WHERE username=%s", (username,))
+    if not username or not password:
+        return jsonify({"error": "Kullanıcı adı ve şifre boş olamaz"}), 400
+
+    cursor.execute("SELECT password_hash FROM users WHERE username=%s", (username,))
     row = cursor.fetchone()
     if not row or not check_password_hash(row[0], password):
         return jsonify({"error": "Kullanıcı adı veya şifre hatalı"}), 401
