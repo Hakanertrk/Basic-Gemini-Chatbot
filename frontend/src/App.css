@@ -37,9 +37,9 @@ body {
 /* -------------------- Auth Form -------------------- */
 .auth-form {
   display: flex;
-  flex-direction: column; /* Alt alta diz */
-  align-items: center;    /* Ortala */
-  gap: 15px;              /* Aralarına boşluk */
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
   width: 320px;
   margin: 50px auto;
   padding: 30px;
@@ -64,7 +64,7 @@ body {
 }
 
 .auth-form button {
-  width: 100%;            /* Buton input genişliği ile eşleşsin */
+  width: 100%;
   padding: 12px;
   border-radius: 8px;
   background-color: #007bff;
@@ -199,8 +199,9 @@ button:active {
 .message.bot {
   background-color: #e5e5ea;
   color: #000;
-  align-self: flex-end;
-  text-align: right;
+  align-self: flex-end; /* Sağ taraf */
+  text-align: left;      /* Balon içeriğini solda hizala */
+  margin-left: auto;      /* Sağ tarafa it */
 }
 
 /* -------------------- Typing Animasyonu -------------------- */
