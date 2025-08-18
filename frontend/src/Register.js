@@ -1,9 +1,8 @@
-import React, { use, useState } from "react";
+import React, { useState } from "react";
 import axios from "axios";
 
 export default function Register() {
-
-  const [email, setUsername] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -13,24 +12,18 @@ export default function Register() {
     setError("");
     setSuccess("");
 
-    if ( !email || !password) {
+    if (!username || !password) {
       setError("Tüm alanlar zorunludur");
       return;
     }
 
     try {
-      const payload = {
-      
-        username: email, // Backend'de username olarak email kullanılıyor
-        password
-      };
-
-      console.log("Gönderilen veri:", payload); // Test için backend'e ne gidecek bak
+      const payload = { username, password };
+      console.log("Gönderilen veri:", payload);
 
       await axios.post("http://127.0.0.1:5000/register", payload);
 
       setSuccess("Kayıt başarılı! Giriş yapabilirsiniz.");
-     
       setUsername("");
       setPassword("");
     } catch (err) {
@@ -40,23 +33,22 @@ export default function Register() {
   };
 
   return (
-    <form onSubmit={handleRegister}>
-      
+    <form className="auth-form" onSubmit={handleRegister}>
       <input
-        type="username"
+        type="text"
         placeholder="Username"
-        value={email}
-        onChange={e => setUsername(e.target.value)}
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
       />
       <input
         type="password"
         placeholder="Şifre"
         value={password}
-        onChange={e => setPassword(e.target.value)}
+        onChange={(e) => setPassword(e.target.value)}
       />
       <button type="submit">Kayıt Ol</button>
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      {success && <p style={{ color: "green" }}>{success}</p>}
+      {error && <p style={{ color: "red", marginTop: "10px" }}>{error}</p>}
+      {success && <p style={{ color: "green", marginTop: "10px" }}>{success}</p>}
     </form>
   );
 }

@@ -5,7 +5,7 @@ import Message from "./Message";
 export default function ChatBox({ token }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false); // Bot cevabı bekleniyor mu
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -15,12 +15,12 @@ export default function ChatBox({ token }) {
   }, [messages, loading]);
 
   const sendMessage = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return; // Eğer bot cevabı bekleniyorsa mesaj gönderme
 
     const userMsg = { sender: "user", text: input };
     setMessages(prev => [...prev, userMsg]);
     setInput("");
-    setLoading(true);
+    setLoading(true); // Mesaj gönderildi, bot cevabı bekleniyor
 
     try {
       const res = await axios.post(
@@ -34,8 +34,9 @@ export default function ChatBox({ token }) {
     } catch (error) {
       console.error("Backend Hatası:", error.response?.data || error.message);
       setMessages(prev => [...prev, { sender: "bot", text: "⚠️ Bir hata oluştu." }]);
+    } finally {
+      setLoading(false); // Bot cevabı geldikten sonra tekrar mesaj gönderilebilir
     }
-    setLoading(false);
   };
 
   return (
@@ -44,17 +45,26 @@ export default function ChatBox({ token }) {
         {messages.map((m, i) => (
           <Message key={i} sender={m.sender} text={m.text} />
         ))}
-        {loading && <div className="typing"><span></span><span></span><span></span></div>}
+        {loading && (
+          <div className="typing">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
       <div className="input-area">
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
-          placeholder="Bir şey sor..."
+          placeholder={loading ? "Bot cevap veriyor..." : "Bir şey sor..."}
           onKeyDown={e => e.key === "Enter" && sendMessage()}
+          disabled={loading} // Bot cevap verirken input devre dışı
         />
-        <button onClick={sendMessage}>Gönder</button>
+        <button onClick={sendMessage} disabled={loading}>
+          {loading ? "Bekleyin..." : "Gönder"}
+        </button>
       </div>
     </div>
   );
