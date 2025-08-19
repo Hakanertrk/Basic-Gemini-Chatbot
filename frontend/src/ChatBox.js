@@ -8,14 +8,38 @@ export default function ChatBox({ token }) {
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
+  // -----------------------
+  // Sayfa yüklendiğinde mesaj geçmişini çek
+  // -----------------------
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const res = await axios.get("http://127.0.0.1:5000/history", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setMessages(res.data); // Backend'den gelen geçmiş
+      } catch (err) {
+        console.error("Mesaj geçmişi alınamadı:", err.response?.data || err.message);
+      }
+    };
+
+    fetchHistory();
+  }, [token]);
+
+  // -----------------------
+  // Mesaj scroll
+  // -----------------------
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, loading]);
 
+  // -----------------------
+  // Mesaj gönderme
+  // -----------------------
   const sendMessage = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return; // Bot cevaplamadan yeni mesaj engelle
 
     const userMsg = { sender: "user", text: input };
     setMessages(prev => [...prev, userMsg]);
@@ -54,7 +78,9 @@ export default function ChatBox({ token }) {
           placeholder="Bir şey sor..."
           onKeyDown={e => e.key === "Enter" && sendMessage()}
         />
-        <button onClick={sendMessage}>Gönder</button>
+        <button onClick={sendMessage} disabled={loading}>
+          Gönder
+        </button>
       </div>
     </div>
   );

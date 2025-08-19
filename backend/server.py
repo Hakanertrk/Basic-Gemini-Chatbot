@@ -28,16 +28,24 @@ CORS(app)
 API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
 # -----------------------
-# Kullanıcı kaydı
+# Kullanıcı chat durumları
+# -----------------------
+chat_history = {}  
+waiting_for_bot = {}  
+
+# -----------------------
+# Register
 # -----------------------
 @app.route("/register", methods=["POST"])
 def register():
     data = request.json
+    firstname = data.get("firstname")
+    lastname = data.get("lastname")
     username = data.get("username")
     password = data.get("password")
 
-    if not username or not password:
-        return jsonify({"error": "Kullanıcı adı ve şifre boş olamaz"}), 400
+    if not firstname or not lastname or not username or not password:
+        return jsonify({"error": "Tüm alanlar zorunludur"}), 400
 
     cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
     if cursor.fetchone():
@@ -45,10 +53,14 @@ def register():
 
     hashed_pw = generate_password_hash(password)
     cursor.execute(
-        "INSERT INTO users (username, password_hash) VALUES (%s, %s)",
-        (username, hashed_pw)
+        "INSERT INTO users (firstname, lastname, username, password_hash) VALUES (%s, %s, %s, %s)",
+        (firstname, lastname, username, hashed_pw)
     )
     conn.commit()
+
+    chat_history[username] = []
+    waiting_for_bot[username] = False
+
     return jsonify({"message": "Kullanıcı başarıyla oluşturuldu"})
 
 # -----------------------
@@ -73,10 +85,14 @@ def login():
         "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=2)
     }, JWT_SECRET, algorithm="HS256")
 
+    if username not in chat_history:
+        chat_history[username] = []
+    waiting_for_bot[username] = False
+
     return jsonify({"token": token})
 
 # -----------------------
-# Chat endpoint (JWT doğrulamalı)
+# Chat endpoint
 # -----------------------
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -86,16 +102,23 @@ def chat():
 
     token = auth_header.split(" ")[1]
     try:
-        jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        username = decoded["username"]
     except jwt.ExpiredSignatureError:
         return jsonify({"error": "Token süresi dolmuş"}), 401
     except jwt.InvalidTokenError:
         return jsonify({"error": "Geçersiz token"}), 401
 
+    if waiting_for_bot.get(username, False):
+        return jsonify({"error": "Bot cevabı gelmeden yeni mesaj gönderemezsiniz"}), 400
+
     data = request.json
     user_message = data.get("message", "").strip()
     if not user_message:
         return jsonify({"error": "Mesaj boş olamaz"}), 400
+
+    chat_history.setdefault(username, []).append({"sender": "user", "text": user_message})
+    waiting_for_bot[username] = True
 
     try:
         response = requests.post(
@@ -112,10 +135,34 @@ def chat():
         )
         response.raise_for_status()
         bot_reply = response.json()["candidates"][0]["content"]["parts"][0]["text"]
-        return jsonify({"reply": bot_reply})
     except Exception as e:
+        bot_reply = "⚠️ Bot cevabı alınamadı."
         print("Hata:", e)
-        return jsonify({"error": str(e)}), 500
+
+    chat_history[username].append({"sender": "bot", "text": bot_reply})
+    waiting_for_bot[username] = False
+
+    return jsonify({"reply": bot_reply})
+
+# -----------------------
+# Mesaj geçmişi endpoint
+# -----------------------
+@app.route("/history", methods=["GET"])
+def history():
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Token eksik"}), 401
+
+    token = auth_header.split(" ")[1]
+    try:
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        username = decoded["username"]
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token süresi dolmuş"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Geçersiz token"}), 401
+
+    return jsonify(chat_history.get(username, []))
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

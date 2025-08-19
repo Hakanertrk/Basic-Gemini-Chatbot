@@ -33,8 +33,8 @@ function App() {
         </>
       ) : (
         <>
-          <h1 className="app-title">EMMIChat</h1>
-          <h2 className="app-subtitle">Gemini ile Sohbet Et</h2>
+          <h1 className="app-title">CHATOBOT 🤖</h1>
+          <h2 className="app-subtitle">Tüm CHATOBOT'lara seslen.</h2>
           <ChatBox token={token} />
           <button
             onClick={() => {

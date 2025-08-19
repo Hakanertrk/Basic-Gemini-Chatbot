@@ -5,10 +5,16 @@ export default function Login({ setToken }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
+  const handleLogin = async (e) => {
+    e.preventDefault(); // sayfanın reload olmasını engeller
+    setError("");
+    setLoading(true);
+
     if (!username || !password) {
       setError("Kullanıcı adı ve şifre boş olamaz");
+      setLoading(false);
       return;
     }
 
@@ -18,27 +24,32 @@ export default function Login({ setToken }) {
       setToken(res.data.token);
     } catch (err) {
       setError(err.response?.data?.error || "Hata oluştu");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="auth-form">
+    <form className="auth-form" onSubmit={handleLogin}>
+      <h2>Giriş yap</h2>
       {error && <p style={{ color: "red" }}>{error}</p>}
 
       <input
         type="text"
         placeholder="E-posta"
         value={username}
-        onChange={e => setUsername(e.target.value)}
+        onChange={(e) => setUsername(e.target.value)}
       />
       <input
         type="password"
         placeholder="Şifre"
         value={password}
-        onChange={e => setPassword(e.target.value)}
+        onChange={(e) => setPassword(e.target.value)}
       />
 
-      <button onClick={handleLogin}>Giriş Yap</button>
-    </div>
+      <button type="submit" disabled={loading}>
+        {loading ? "Giriş Yapılıyor..." : "Giriş Yap"}
+      </button>
+    </form>
   );
 }
