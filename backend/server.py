@@ -36,16 +36,19 @@ waiting_for_bot = {}
 # -----------------------
 # Register
 # -----------------------
+# -----------------------
+# Kullanıcı kaydı (Register)
+# -----------------------
 @app.route("/register", methods=["POST"])
 def register():
     data = request.json
-    firstname = data.get("firstname")
-    lastname = data.get("lastname")
     username = data.get("username")
     password = data.get("password")
+    firstname = data.get("firstname", "")
+    lastname = data.get("lastname", "")
 
-    if not firstname or not lastname or not username or not password:
-        return jsonify({"error": "Tüm alanlar zorunludur"}), 400
+    if not username or not password:
+        return jsonify({"error": "Kullanıcı adı ve şifre boş olamaz"}), 400
 
     cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
     if cursor.fetchone():
@@ -53,8 +56,8 @@ def register():
 
     hashed_pw = generate_password_hash(password)
     cursor.execute(
-        "INSERT INTO users (firstname, lastname, username, password_hash) VALUES (%s, %s, %s, %s)",
-        (firstname, lastname, username, hashed_pw)
+        "INSERT INTO users (username, password_hash, firstname, lastname) VALUES (%s, %s, %s, %s)",
+        (username, hashed_pw, firstname, lastname)
     )
     conn.commit()
 
@@ -91,9 +94,67 @@ def login():
 
     return jsonify({"token": token})
 
-# -----------------------
-# Chat endpoint
-# -----------------------
+@app.route("/profile", methods=["GET", "POST"])
+def profile():
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Token eksik"}), 401
+
+    token = auth_header.split(" ")[1]
+    try:
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        username = decoded["username"]
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token süresi dolmuş"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Geçersiz token"}), 401
+
+    if request.method == "GET":
+        cursor.execute(
+            "SELECT username, firstname, lastname, age, height, weight, chronic FROM users WHERE username=%s",
+            (username,)
+        )
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({"error": "Kullanıcı bulunamadı"}), 404
+
+        return jsonify({
+            "username": row[0],
+            "firstname": row[1] or "",
+            "lastname": row[2] or "",
+            "age": row[3] or "",
+            "height": row[4] or "",
+            "weight": row[5] or "",
+            "chronic_diseases": row[6] or ""   # ⚠️ burayı düzelttim
+        })
+
+    if request.method == "POST":
+        data = request.json
+        firstname = data.get("firstname")
+        lastname = data.get("lastname")
+        age = data.get("age")
+        height = data.get("height")
+        weight = data.get("weight")
+        chronic = data.get("chronic_diseases")
+
+        cursor.execute(
+            """
+            UPDATE users
+            SET firstname = COALESCE(%s, firstname),
+                lastname = COALESCE(%s, lastname),
+                age = COALESCE(%s, age),
+                height = COALESCE(%s, height),
+                weight = COALESCE(%s, weight),
+                chronic = COALESCE(%s, chronic)
+            WHERE username=%s
+            """,
+            (firstname, lastname, age, height, weight, chronic, username)
+        )
+        conn.commit()
+
+        return jsonify({"message": "Profil güncellendi"})
+
+
 @app.route("/chat", methods=["POST"])
 def chat():
     auth_header = request.headers.get("Authorization", "")
@@ -123,12 +184,45 @@ def chat():
     waiting_for_bot[username] = True
 
     # -------------------
+    # Kullanıcı profil bilgilerini çekelim
+    # -------------------
+    cursor.execute(
+        "SELECT age, height, weight, chronic FROM users WHERE username=%s",
+        (username,)
+    )
+    row = cursor.fetchone()
+    profile_info = {
+        "age": row[0],
+        "height": row[1],
+        "weight": row[2],
+        "chronic": row[3]
+    } if row else {}
+
+    # BMI hesaplama
+    extra_info = ""
+    if profile_info.get("height") and profile_info.get("weight"):
+        try:
+            height_m = float(profile_info["height"]) / 100
+            bmi = float(profile_info["weight"]) / (height_m ** 2)
+            if bmi >= 30:
+                extra_info += "Kullanıcının obezite durumu var. "
+            elif bmi >= 25:
+                extra_info += "Kullanıcı fazla kilolu. "
+            elif bmi < 18.5:
+                extra_info += "Kullanıcı zayıf. "
+        except Exception:
+            pass
+
+    if profile_info.get("chronic"):
+        extra_info += f"Kullanıcının kronik hastalıkları: {profile_info['chronic']}. "
+
+    # -------------------
     # Danger prompt kontrolü
     # -------------------
     danger_words = [
     # Kalp & dolaşım
     "göğüs ağrısı", "çarpıntı", "nefes darlığı", "bayılma", "hipotansiyon", "yüksek ateş", 
-    "kalp krizi", "kalp durması", "nabız düşüklüğü", "nabız yükselmesi", "şok", 
+    "kalp krizi", "kalp durması", "kalp sıkışması", "nabız düşüklüğü", "nabız yükselmesi", "şok", 
 
     # Nörolojik
     "felç", "konuşamıyorum", "baş dönmesi", "bayılma", "şiddetli baş ağrısı", 
@@ -138,7 +232,7 @@ def chat():
     "nefes alamıyorum", "hırıltı", "astım krizi", "boğulma", "solunum yetmezliği", 
 
     # Sindirim
-    "şiddetli karın ağrısı", "kusma", "kanı kusmak", "kanlı dışkı", "ishal", 
+    "şiddetli karın ağrısı", "kusma", "kan kusmak", "kanlı dışkı", "ishal", 
     "karın şişliği", "apandisit", 
 
     # Travma / yaralanma
@@ -151,19 +245,25 @@ def chat():
     "zehirlenme", "allergik şok", "anafilaksi", "yüksek ateş", "ölüm", 
     "şiddetli ağrı", "bilinç kaybı"
 ]
+
     is_danger = any(word in user_message.lower() for word in danger_words)
     bot_reply = ""
 
     if is_danger:
-        bot_reply += "⚠️ Bu sorunlu bir durum gibi gözüküyor. Lütfen 112'ye ulaşın yada doktorunuza başvurun.\n\n"
+        bot_reply += "⚠️ Bu ciddi bir durum olabilir. Lütfen 112'yi arayın veya en yakın acile gidin.\n\n"
 
     # -------------------
-    # Normal sağlık önerisi promptu
+    # Normal sağlık önerisi promptu (kişiselleştirilmiş)
     # -------------------
     prompt = f"""
     Sen bir genel sağlık asistanısın. Kullanıcıya güvenli ve evde uygulanabilir tavsiyeler ver. 
-    Sadece takviyeler, besinler ve yaşam tarzı önerileri ver. 
+    Sadece beslenme, yaşam tarzı ve basit çözümler öner. İlaç önerme.
+    
+    Kullanıcı profili: {extra_info if extra_info else "Özel bilgi yok."}
     Kullanıcının mesajı: {user_message}
+
+    Yanıtın kısa ve öz (2-3 cümle) olmalı.
+    Eğer fazla kilosu varsa, fazla kilolarının şikayetini artırabileceğini belirt.
     """
 
     try:
@@ -173,9 +273,7 @@ def chat():
                 "Content-Type": "application/json",
                 "X-goog-api-key": API_KEY
             },
-            json={
-                "contents": [{"parts": [{"text": prompt}]}]
-            }
+            json={"contents": [{"parts": [{"text": prompt}]}]}
         )
         response.raise_for_status()
         normal_reply = response.json()["candidates"][0]["content"]["parts"][0]["text"]
@@ -183,7 +281,6 @@ def chat():
         normal_reply = "⚠️ Bot cevabı alınamadı."
         print("Hata:", e)
 
-    # Danger uyarısı varsa başa ekle
     bot_reply += normal_reply
 
     # Bot cevabını kaydet ve kullanıcıyı serbest bırak
@@ -191,6 +288,7 @@ def chat():
     waiting_for_bot[username] = False
 
     return jsonify({"reply": bot_reply})
+
 
 
 

@@ -30,7 +30,9 @@ export default function Login({ setToken }) {
   };
 
   return (
+    
     <form className="auth-form" onSubmit={handleLogin}>
+      
       <h2>Giriş yap</h2>
       {error && <p style={{ color: "red" }}>{error}</p>}
 

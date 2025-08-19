@@ -17,12 +17,11 @@ export default function ChatBox({ token }) {
         const res = await axios.get("http://127.0.0.1:5000/history", {
           headers: { Authorization: `Bearer ${token}` }
         });
-        setMessages(res.data); // Backend'den gelen geçmiş
+        setMessages(res.data);
       } catch (err) {
         console.error("Mesaj geçmişi alınamadı:", err.response?.data || err.message);
       }
     };
-
     fetchHistory();
   }, [token]);
 
@@ -33,13 +32,13 @@ export default function ChatBox({ token }) {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, loading]);
+  }, [messages]);
 
   // -----------------------
   // Mesaj gönderme
   // -----------------------
   const sendMessage = async () => {
-    if (!input.trim() || loading) return; // Bot cevaplamadan yeni mesaj engelle
+    if (!input.trim() || loading) return;
 
     const userMsg = { sender: "user", text: input };
     setMessages(prev => [...prev, userMsg]);
@@ -64,13 +63,18 @@ export default function ChatBox({ token }) {
 
   return (
     <div className="chatbox">
-      <div className="messages">
+      <div className="chat-area">
         {messages.map((m, i) => (
           <Message key={i} sender={m.sender} text={m.text} />
         ))}
-        {loading && <div className="typing"><span></span><span></span><span></span></div>}
+        {loading && (
+          <div className="typing">
+            <span></span><span></span><span></span>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
+
       <div className="input-area">
         <input
           value={input}
@@ -79,7 +83,7 @@ export default function ChatBox({ token }) {
           onKeyDown={e => e.key === "Enter" && sendMessage()}
         />
         <button onClick={sendMessage} disabled={loading}>
-          Gönder
+          {loading ? "Gönderiliyor..." : "Gönder"}
         </button>
       </div>
     </div>
