@@ -109,6 +109,7 @@ def chat():
     except jwt.InvalidTokenError:
         return jsonify({"error": "Geçersiz token"}), 401
 
+    # Bot cevabı gelmeden yeni mesaj gönderilmesin
     if waiting_for_bot.get(username, False):
         return jsonify({"error": "Bot cevabı gelmeden yeni mesaj gönderemezsiniz"}), 400
 
@@ -117,8 +118,53 @@ def chat():
     if not user_message:
         return jsonify({"error": "Mesaj boş olamaz"}), 400
 
+    # Kullanıcı mesajını kaydet
     chat_history.setdefault(username, []).append({"sender": "user", "text": user_message})
     waiting_for_bot[username] = True
+
+    # -------------------
+    # Danger prompt kontrolü
+    # -------------------
+    danger_words = [
+    # Kalp & dolaşım
+    "göğüs ağrısı", "çarpıntı", "nefes darlığı", "bayılma", "hipotansiyon", "yüksek ateş", 
+    "kalp krizi", "kalp durması", "nabız düşüklüğü", "nabız yükselmesi", "şok", 
+
+    # Nörolojik
+    "felç", "konuşamıyorum", "baş dönmesi", "bayılma", "şiddetli baş ağrısı", 
+    "nöbet", "kriz", "bilinç kaybı", "epilepsi atağı", 
+
+    # Solunum
+    "nefes alamıyorum", "hırıltı", "astım krizi", "boğulma", "solunum yetmezliği", 
+
+    # Sindirim
+    "şiddetli karın ağrısı", "kusma", "kanı kusmak", "kanlı dışkı", "ishal", 
+    "karın şişliği", "apandisit", 
+
+    # Travma / yaralanma
+    "şiddetli kanama", "kırık", "yanık", "çarpma", "travma", "kazada yaralandım", 
+
+    # Psikolojik
+    "intihar", "kendime zarar", "psikoz", "panik atak", "kriz", "depresyon", 
+
+    # Diğer ciddi durumlar
+    "zehirlenme", "allergik şok", "anafilaksi", "yüksek ateş", "ölüm", 
+    "şiddetli ağrı", "bilinç kaybı"
+]
+    is_danger = any(word in user_message.lower() for word in danger_words)
+    bot_reply = ""
+
+    if is_danger:
+        bot_reply += "⚠️ Bu sorunlu bir durum gibi gözüküyor. Lütfen 112'ye ulaşın yada doktorunuza başvurun.\n\n"
+
+    # -------------------
+    # Normal sağlık önerisi promptu
+    # -------------------
+    prompt = f"""
+    Sen bir genel sağlık asistanısın. Kullanıcıya güvenli ve evde uygulanabilir tavsiyeler ver. 
+    Sadece takviyeler, besinler ve yaşam tarzı önerileri ver. 
+    Kullanıcının mesajı: {user_message}
+    """
 
     try:
         response = requests.post(
@@ -128,21 +174,25 @@ def chat():
                 "X-goog-api-key": API_KEY
             },
             json={
-                "contents": [
-                    {"parts": [{"text": user_message}]}
-                ]
+                "contents": [{"parts": [{"text": prompt}]}]
             }
         )
         response.raise_for_status()
-        bot_reply = response.json()["candidates"][0]["content"]["parts"][0]["text"]
+        normal_reply = response.json()["candidates"][0]["content"]["parts"][0]["text"]
     except Exception as e:
-        bot_reply = "⚠️ Bot cevabı alınamadı."
+        normal_reply = "⚠️ Bot cevabı alınamadı."
         print("Hata:", e)
 
+    # Danger uyarısı varsa başa ekle
+    bot_reply += normal_reply
+
+    # Bot cevabını kaydet ve kullanıcıyı serbest bırak
     chat_history[username].append({"sender": "bot", "text": bot_reply})
     waiting_for_bot[username] = False
 
     return jsonify({"reply": bot_reply})
+
+
 
 # -----------------------
 # Mesaj geçmişi endpoint

@@ -198,6 +198,7 @@ button:active {
   color: #fff;
   align-self: flex-start;
   text-align: left;
+  margin-bottom: 10px;
 }
 
 .message.bot {
@@ -205,7 +206,8 @@ button:active {
   color: #000;
   align-self: flex-end; /* Sağ taraf */
   text-align: left;      /* Balon içeriğini solda hizala */
-  margin-left: auto;      /* Sağ tarafa it */
+  margin-left: auto;
+  margin-bottom: 10px;      /* Sağ tarafa it */
 }
 
 /* -------------------- Typing Animasyonu -------------------- */
