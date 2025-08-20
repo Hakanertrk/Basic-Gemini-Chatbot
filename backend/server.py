@@ -91,14 +91,7 @@ def upload_pdf():
     1. Genel durumu 1-2 cümle ile özetle.
     2. Referans dışı değerleri listele (eğer varsa).
     3. Her referans dışı değer için kısa ve basit öneriler ver.
-    4. AI tarafından oluşturulmuş bir özet ve öneri metni oluştur.
-
-    Format:
-    {{
-      "summary": "Kısa genel özet",
-      "abnormal": ["Değer - açıklama"],
-      "suggestions": ["Öneri 1", "Öneri 2"]
-    }}
+    
 
     Rapor metni:
     {text[:3000]}
@@ -125,7 +118,7 @@ def upload_pdf():
     else:
         bot_reply += "\n✅ Tüm değerler referans aralıklarında."
 
-    bot_reply += f"\n\n🤖 AI yorumu:\n{ai_reply}"
+    bot_reply += f"\n\n AI Önerisi:\n{ai_reply}"
 
     return jsonify({"reply": bot_reply})
 

@@ -6,6 +6,7 @@ export default function ChatBox({ token }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState(null);
   const messagesEndRef = useRef(null);
 
   // -----------------------
@@ -68,6 +69,7 @@ export default function ChatBox({ token }) {
     const file = e.target.files[0];
     if (!file) return;
 
+    setUploadedFile(file);
     const formData = new FormData();
     formData.append("pdf", file);
 
@@ -87,7 +89,6 @@ export default function ChatBox({ token }) {
         }
       );
 
-      // 👇 Backend’den gelen AI + regex analizi ekrana düşüyor
       const botMsg = { sender: "bot", text: res.data.reply };
       setMessages(prev => [...prev, botMsg]);
     } catch (err) {
@@ -122,14 +123,33 @@ export default function ChatBox({ token }) {
           {loading ? "Gönderiliyor..." : "Gönder"}
         </button>
 
-        {/* 📂 PDF yükleme alanı */}
-        <input
-          type="file"
-          accept="application/pdf"
-          onChange={handleFileUpload}
-          disabled={loading}
-          style={{ marginLeft: "10px" }}
-        />
+        {/* 📂 PDF yükleme alanı - Drag & Drop */}
+        <div
+          className="pdf-dropzone"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            handleFileUpload({ target: { files: e.dataTransfer.files } });
+          }}
+        >
+          <p>📄 Tahlil Sonuçlarınızı PDF formatında sürükleyin veya tıklayarak seçin</p>
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={handleFileUpload}
+            style={{ display: "none" }}
+            id="pdfInput"
+            disabled={loading}
+          />
+          <label htmlFor="pdfInput" className="pdf-label">
+            Dosya Seç
+          </label>
+          {uploadedFile && (
+            <div className="pdf-info">
+              Yüklenen: {uploadedFile.name} ({(uploadedFile.size / 1024).toFixed(1)} KB)
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
