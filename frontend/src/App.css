@@ -19,21 +19,29 @@ body {
 
 /* -------------------- Başlık -------------------- */
 .app-title {
-  font-size: 46px;
+  font-size: 2rem;
   font-weight: bold;
-  background-color: #fff;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 5px;
+}
+
+.center-title {
+  text-align: center;
+  margin: 2rem 0;
+  color: #ffffff; /* İstediğiniz renk kodunu buraya yazın */
+}
+
+.top-left-title {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  color: #0e87eb; /* İstediğiniz renk kodunu buraya yazın */
 }
 
 .app-subtitle {
-  font-size: 15px;
+  text-align: center;
+  margin-bottom: 2rem;
   color: #ffffff;
-  margin-bottom: 5px;
+  font-size: 16px;
 }
-
 /* -------------------- Auth Form -------------------- */
 .auth-form {
   display: flex;
@@ -121,6 +129,7 @@ body {
 
            /* sabit yükseklik */
 }
+
 
 .chat-area {
   display: flex;

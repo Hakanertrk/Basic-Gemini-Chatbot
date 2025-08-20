@@ -10,13 +10,19 @@ function App() {
   const [showRegister, setShowRegister] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
 
+  // Başlık için ekran tipi belirleme
+  const screen = !token ? "login" : showProfile ? "profile" : "chat";
+
   return (
     <div className="app">
+      {/* Başlık */}
+      <h1 className={`app-title ${screen === "login" ? "center-title" : "top-left-title"}`}>
+        CHATDOC 🩺
+      </h1>
+      {screen === "login" && <h2 className="app-subtitle">Sağlığınız için AI.</h2>}
+
       {!token ? (
         <>
-          <h1 className="app-title">CHATDOC 🩺</h1>
-          <h2 className="app-subtitle">Sağlığınız için AI.</h2>
-
           {showRegister ? (
             <>
               <Register setToken={setToken} />
@@ -52,9 +58,6 @@ function App() {
               Çıkış Yap
             </button>
           </div>
-
-          <h1 className="app-title">CHATDOC 🩺</h1>
-          <h2 className="app-subtitle">Sağlığınız için AI.</h2>
 
           {showProfile ? <Profile token={token} /> : <ChatBox token={token} />}
         </>

@@ -3,6 +3,7 @@ from flask_cors import CORS
 import requests
 import os
 import jwt
+from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 import datetime
 import psycopg2
 from dotenv import load_dotenv
@@ -35,9 +36,6 @@ waiting_for_bot = {}
 
 # -----------------------
 # Register
-# -----------------------
-# -----------------------
-# Kullanıcı kaydı (Register)
 # -----------------------
 @app.route("/register", methods=["POST"])
 def register():
@@ -94,6 +92,9 @@ def login():
 
     return jsonify({"token": token})
 
+# -----------------------
+# Profile
+# -----------------------
 @app.route("/profile", methods=["GET", "POST"])
 def profile():
     auth_header = request.headers.get("Authorization", "")
@@ -104,9 +105,9 @@ def profile():
     try:
         decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         username = decoded["username"]
-    except jwt.ExpiredSignatureError:
+    except ExpiredSignatureError:
         return jsonify({"error": "Token süresi dolmuş"}), 401
-    except jwt.InvalidTokenError:
+    except InvalidTokenError:
         return jsonify({"error": "Geçersiz token"}), 401
 
     if request.method == "GET":
@@ -125,7 +126,7 @@ def profile():
             "age": row[3] or "",
             "height": row[4] or "",
             "weight": row[5] or "",
-            "chronic_diseases": row[6] or ""   # ⚠️ burayı düzelttim
+            "chronic_diseases": row[6] or ""
         })
 
     if request.method == "POST":
@@ -154,7 +155,9 @@ def profile():
 
         return jsonify({"message": "Profil güncellendi"})
 
-
+# -----------------------
+# Chat
+# -----------------------
 @app.route("/chat", methods=["POST"])
 def chat():
     auth_header = request.headers.get("Authorization", "")
@@ -165,12 +168,11 @@ def chat():
     try:
         decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         username = decoded["username"]
-    except jwt.ExpiredSignatureError:
+    except ExpiredSignatureError:
         return jsonify({"error": "Token süresi dolmuş"}), 401
-    except jwt.InvalidTokenError:
+    except InvalidTokenError:
         return jsonify({"error": "Geçersiz token"}), 401
 
-    # Bot cevabı gelmeden yeni mesaj gönderilmesin
     if waiting_for_bot.get(username, False):
         return jsonify({"error": "Bot cevabı gelmeden yeni mesaj gönderemezsiniz"}), 400
 
@@ -179,7 +181,6 @@ def chat():
     if not user_message:
         return jsonify({"error": "Mesaj boş olamaz"}), 400
 
-    # Kullanıcı mesajını kaydet
     chat_history.setdefault(username, []).append({"sender": "user", "text": user_message})
     waiting_for_bot[username] = True
 
@@ -198,7 +199,7 @@ def chat():
         "chronic": row[3]
     } if row else {}
 
-    # BMI hesaplama
+    # BMI hesaplama ve ekstra bilgi
     extra_info = ""
     if profile_info.get("height") and profile_info.get("weight"):
         try:
@@ -210,7 +211,7 @@ def chat():
                 extra_info += "Kullanıcı fazla kilolu. "
             elif bmi < 18.5:
                 extra_info += "Kullanıcı zayıf. "
-        except Exception:
+        except:
             pass
 
     if profile_info.get("chronic"):
@@ -220,50 +221,28 @@ def chat():
     # Danger prompt kontrolü
     # -------------------
     danger_words = [
-    # Kalp & dolaşım
-    "göğüs ağrısı", "çarpıntı", "nefes darlığı", "bayılma", "hipotansiyon", "yüksek ateş", 
-    "kalp krizi", "kalp durması", "kalp sıkışması", "nabız düşüklüğü", "nabız yükselmesi", "şok", 
-
-    # Nörolojik
-    "felç", "konuşamıyorum", "baş dönmesi", "bayılma", "şiddetli baş ağrısı", 
-    "nöbet", "kriz", "bilinç kaybı", "epilepsi atağı", 
-
-    # Solunum
-    "nefes alamıyorum", "hırıltı", "astım krizi", "boğulma", "solunum yetmezliği", 
-
-    # Sindirim
-    "şiddetli karın ağrısı", "kusma", "kan kusmak", "kanlı dışkı", "ishal", 
-    "karın şişliği", "apandisit", 
-
-    # Travma / yaralanma
-    "şiddetli kanama", "kırık", "yanık", "çarpma", "travma", "kazada yaralandım", 
-
-    # Psikolojik
-    "intihar", "kendime zarar", "psikoz", "panik atak", "kriz", "depresyon", 
-
-    # Diğer ciddi durumlar
-    "zehirlenme", "allergik şok", "anafilaksi", "yüksek ateş", "ölüm", 
-    "şiddetli ağrı", "bilinç kaybı"
-]
-
+        "göğüs ağrısı", "çarpıntı", "nefes darlığı", "bayılma", "hipotansiyon", 
+        "kalp krizi", "kalp durması", "nabız düşüklüğü", "nabız yükselmesi",
+        "felç", "konuşamıyorum", "baş dönmesi", "nöbet", "astım krizi",
+        "şiddetli karın ağrısı", "kusma", "kan kusmak", "şiddetli kanama",
+        "intihar", "kendime zarar", "zehirlenme", "allergik şok", "anafilaksi"
+    ]
     is_danger = any(word in user_message.lower() for word in danger_words)
-    bot_reply = ""
 
+    bot_reply = ""
     if is_danger:
         bot_reply += "⚠️ Bu ciddi bir durum olabilir. Lütfen 112'yi arayın veya en yakın acile gidin.\n\n"
 
     # -------------------
-    # Normal sağlık önerisi promptu (kişiselleştirilmiş)
+    # Normal sağlık önerisi promptu
     # -------------------
     prompt = f"""
-    Sen bir genel sağlık asistanısın. Kullanıcıya güvenli ve evde uygulanabilir tavsiyeler ver. 
+    Sen bir genel sağlık asistanısın. Kullanıcıya güvenli ve evde uygulanabilir tavsiyeler ver.
     Sadece beslenme, yaşam tarzı ve basit çözümler öner. İlaç önerme.
     
     Kullanıcı profili: {extra_info if extra_info else "Özel bilgi yok."}
     Kullanıcının mesajı: {user_message}
-
     Yanıtın kısa ve öz (2-3 cümle) olmalı.
-    Eğer fazla kilosu varsa, fazla kilolarının şikayetini artırabileceğini belirt.
     """
 
     try:
@@ -279,21 +258,17 @@ def chat():
         normal_reply = response.json()["candidates"][0]["content"]["parts"][0]["text"]
     except Exception as e:
         normal_reply = "⚠️ Bot cevabı alınamadı."
-        print("Hata:", e)
+        print("API Hatası:", e)
 
     bot_reply += normal_reply
-
-    # Bot cevabını kaydet ve kullanıcıyı serbest bırak
     chat_history[username].append({"sender": "bot", "text": bot_reply})
     waiting_for_bot[username] = False
 
     return jsonify({"reply": bot_reply})
 
 
-
-
 # -----------------------
-# Mesaj geçmişi endpoint
+# History
 # -----------------------
 @app.route("/history", methods=["GET"])
 def history():
@@ -305,9 +280,9 @@ def history():
     try:
         decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         username = decoded["username"]
-    except jwt.ExpiredSignatureError:
+    except ExpiredSignatureError:
         return jsonify({"error": "Token süresi dolmuş"}), 401
-    except jwt.InvalidTokenError:
+    except InvalidTokenError:
         return jsonify({"error": "Geçersiz token"}), 401
 
     return jsonify(chat_history.get(username, []))
