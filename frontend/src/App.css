@@ -6,15 +6,17 @@ body {
 }
 
 .app {
-  text-align: center;
-  background-image: url('bg.jpg');
-  background-size: cover;
-  background-position: center;
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 5px;
+  justify-content: center;
+  min-height: 100vh;
+  background-image: url('bg.jpg'); /* Resim yolu */
+  background-size: cover; /* Ekrana sığdır */
+  background-position: center;
+  background-repeat: no-repeat;
+  padding: 10px;
+  box-sizing: border-box;
 }
 
 /* -------------------- Başlık -------------------- */
@@ -113,33 +115,27 @@ body {
 }
 
 /* -------------------- Chat Box -------------------- */
+/* Chatbox şeffaf veya hafif opak */
 .chatbox {
-  width: 90%;
-  max-width: 700px;
-  margin: 50px auto;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-  padding: 20px;
-  background: #fafafa;
-
   display: flex;
   flex-direction: column;
-  gap: 10px;
-
-           /* sabit yükseklik */
+  width: 100%;
+  max-width: 700px;
+  background-color: rgba(255, 255, 255, 0.9); /* Hafif şeffaf */
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  padding: 15px;
+  max-height: 70vh;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
 }
 
 
+
 .chat-area {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-height: 0px;   /* Başlangıç yüksekliği */
-  max-height: 400px;  /* Maksimum yüksekliği */
-  overflow-y: auto;    /* Taşarsa scroll */
-  padding-right: 10px;
-  transition: height 0.2s ease; /* Yumuşak büyüme animasyonu */
+  flex: 1; /* Mesaj alanı chatbox içinde büyüsün */
+  overflow-y: auto;
+  margin-bottom: 10px;
 }
 
 
@@ -162,7 +158,14 @@ body {
 
 .input-area {
   display: flex;
-  gap: 5px;
+  gap: 10px;
+}
+
+.input-area input {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
 }
 
 input {
@@ -222,6 +225,7 @@ button:active {
   align-self: flex-start;
   text-align: left;
   margin-bottom: 10px;
+  margin-left: 5px;
 }
 
 .message.bot {
@@ -230,6 +234,7 @@ button:active {
   align-self: flex-end; /* Sağ taraf */
   text-align: left;      /* Balon içeriğini solda hizala */
   margin-left: auto;
+  margin-right: 5px;
   margin-bottom: 10px;      /* Sağ tarafa it */
 }
 

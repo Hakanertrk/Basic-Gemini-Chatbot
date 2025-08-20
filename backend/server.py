@@ -8,10 +8,14 @@ import datetime
 import psycopg2
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
+import fitz
+import re
 
 load_dotenv()
 API_KEY = os.getenv("GEMINI_API_KEY")
 JWT_SECRET = os.getenv("JWT_SECRET")
+ALLOWED_EXTENSIONS = {'pdf'}
 
 # PostgreSQL bağlantısı
 conn = psycopg2.connect(
@@ -33,6 +37,97 @@ API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-fl
 # -----------------------
 chat_history = {}  
 waiting_for_bot = {}  
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route("/upload_pdf", methods=["POST"])
+def upload_pdf():
+    if 'pdf' not in request.files:
+        return jsonify({"error": "PDF dosyası bulunamadı"}), 400
+
+    pdf_file = request.files['pdf']
+    doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
+
+    text = ""
+    for page in doc:
+        text += page.get_text()
+
+    # --- 1. Genel özet ---
+    word_count = len(text.split())
+    genel_ozet = f"Tahlil sonuçlarınız {word_count} kelime içeriyor. Genel değerlendirme yapılıyor..."
+
+    # --- 2. Regex ile test sonuçlarını yakala ---
+    pattern = r"([A-Za-zçğıöşüÇĞİÖŞÜ ]+):\s*([\d.,]+)\s*(\w+/?.*)\s*\(Ref[:\-]?\s*([<>]?\d+[\-–]?\d*)\)?"
+    matches = re.findall(pattern, text)
+
+    referans_disi = []
+    for test, value, unit, ref in matches:
+        try:
+            value_num = float(value.replace(",", "."))
+            if "-" in ref:
+                low, high = ref.split("-")
+                low, high = float(low), float(high)
+                if value_num < low:
+                    referans_disi.append(f"{test.strip()} düşük ({value_num} {unit}, ref: {ref})")
+                elif value_num > high:
+                    referans_disi.append(f"{test.strip()} yüksek ({value_num} {unit}, ref: {ref})")
+            elif "<" in ref:
+                limit = float(ref.replace("<", ""))
+                if value_num >= limit:
+                    referans_disi.append(f"{test.strip()} yüksek ({value_num} {unit}, ref: {ref})")
+            elif ">" in ref:
+                limit = float(ref.replace(">", ""))
+                if value_num <= limit:
+                    referans_disi.append(f"{test.strip()} düşük ({value_num} {unit}, ref: {ref})")
+        except:
+            continue
+
+    # --- 3. AI ile analiz (Gemini) ---
+    prompt = f"""
+    Sen bir sağlık asistanısın. Kullanıcının tahlil raporunu inceledin.
+
+    Görevlerin:
+    1. Genel durumu 1-2 cümle ile özetle.
+    2. Referans dışı değerleri listele (eğer varsa).
+    3. Her referans dışı değer için kısa ve basit öneriler ver.
+    4. AI tarafından oluşturulmuş bir özet ve öneri metni oluştur.
+
+    Format:
+    {{
+      "summary": "Kısa genel özet",
+      "abnormal": ["Değer - açıklama"],
+      "suggestions": ["Öneri 1", "Öneri 2"]
+    }}
+
+    Rapor metni:
+    {text[:3000]}
+    """
+    try:
+        response = requests.post(
+            API_URL,
+            headers={
+                "Content-Type": "application/json",
+                "X-goog-api-key": API_KEY
+            },
+            json={"contents": [{"parts": [{"text": prompt}]}]}
+        )
+        response.raise_for_status()
+        ai_reply = response.json()["candidates"][0]["content"]["parts"][0]["text"]
+    except Exception as e:
+        ai_reply = "⚠️ AI analizi yapılamadı."
+        print("PDF analiz hatası:", e)
+
+    # --- 4. Sonuç birleştirme ---
+    bot_reply = genel_ozet
+    if referans_disi:
+        bot_reply += "\n\n⚠️ Referans dışı değerler bulundu:\n- " + "\n- ".join(referans_disi)
+    else:
+        bot_reply += "\n✅ Tüm değerler referans aralıklarında."
+
+    bot_reply += f"\n\n🤖 AI yorumu:\n{ai_reply}"
+
+    return jsonify({"reply": bot_reply})
 
 # -----------------------
 # Register

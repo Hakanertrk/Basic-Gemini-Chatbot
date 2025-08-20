@@ -61,6 +61,42 @@ export default function ChatBox({ token }) {
     setLoading(false);
   };
 
+  // -----------------------
+  // PDF yükleme + analiz
+  // -----------------------
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("pdf", file);
+
+    const userMsg = { sender: "user", text: `📄 PDF Yüklendi: ${file.name}` };
+    setMessages(prev => [...prev, userMsg]);
+    setLoading(true);
+
+    try {
+      const res = await axios.post(
+        "http://127.0.0.1:5000/upload_pdf",
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      // 👇 Backend’den gelen AI + regex analizi ekrana düşüyor
+      const botMsg = { sender: "bot", text: res.data.reply };
+      setMessages(prev => [...prev, botMsg]);
+    } catch (err) {
+      console.error("PDF yükleme hatası:", err.response?.data || err.message);
+      setMessages(prev => [...prev, { sender: "bot", text: "⚠️ PDF analiz edilemedi." }]);
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="chatbox">
       <div className="chat-area">
@@ -85,6 +121,15 @@ export default function ChatBox({ token }) {
         <button onClick={sendMessage} disabled={loading}>
           {loading ? "Gönderiliyor..." : "Gönder"}
         </button>
+
+        {/* 📂 PDF yükleme alanı */}
+        <input
+          type="file"
+          accept="application/pdf"
+          onChange={handleFileUpload}
+          disabled={loading}
+          style={{ marginLeft: "10px" }}
+        />
       </div>
     </div>
   );
