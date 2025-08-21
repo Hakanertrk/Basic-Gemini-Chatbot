@@ -19,8 +19,8 @@ export default function ChatBox({ token }) {
           headers: { Authorization: `Bearer ${token}` }
         });
         setMessages(res.data);
-      } catch (err) {
-        console.error("Mesaj geçmişi alınamadı:", err.response?.data || err.message);
+      } catch (error) {
+        console.error("History Hatası:", error.response?.data || error.message);
       }
     };
     fetchHistory();
@@ -39,28 +39,39 @@ export default function ChatBox({ token }) {
   // Mesaj gönderme
   // -----------------------
   const sendMessage = async () => {
-    if (!input.trim() || loading) return;
+  if (!input.trim() || loading) return;
 
-    const userMsg = { sender: "user", text: input };
-    setMessages(prev => [...prev, userMsg]);
-    setInput("");
-    setLoading(true);
+  const userMsg = { sender: "user", text: input };
+  setMessages(prev => [...prev, userMsg]);
+  setInput("");
+  setLoading(true);
 
-    try {
-      const res = await axios.post(
-        "http://127.0.0.1:5000/chat",
-        { message: input },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+  try {
+    const res = await axios.post(
+      "http://127.0.0.1:5000/chat",
+      { message: input },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`, // Token mutlaka ekleniyor
+        },
+      }
+    );
 
-      const botMsg = { sender: "bot", text: res.data.reply };
-      setMessages(prev => [...prev, botMsg]);
-    } catch (error) {
-      console.error("Backend Hatası:", error.response?.data || error.message);
-      setMessages(prev => [...prev, { sender: "bot", text: "⚠️ Bir hata oluştu." }]);
-    }
+    const botReply = res.data?.reply || "⚠️ Yanıt alınamadı.";
+    const botMsg = { sender: "bot", text: botReply };
+
+    setMessages(prev => [...prev, botMsg]);
+  } catch (error) {
+    console.error("Backend Hatası:", error.response?.data || error.message);
+
+    setMessages(prev => [
+      ...prev,
+      { sender: "bot", text: "⚠️ Bir hata oluştu. Lütfen tekrar deneyin." },
+    ]);
+  } finally {
     setLoading(false);
-  };
+  }
+};
 
   // -----------------------
   // PDF yükleme + analiz

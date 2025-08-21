@@ -54,8 +54,8 @@ def upload_pdf():
         text += page.get_text()
 
     # --- 1. Genel özet ---
-    word_count = len(text.split())
-    genel_ozet = f"Tahlil sonuçlarınız {word_count} kelime içeriyor. Genel değerlendirme yapılıyor..."
+    
+    genel_ozet = f"Genel değerlendirme yapılıyor..."
 
     # --- 2. Regex ile test sonuçlarını yakala ---
     pattern = r"([A-Za-zçğıöşüÇĞİÖŞÜ ]+):\s*([\d.,]+)\s*(\w+/?.*)\s*\(Ref[:\-]?\s*([<>]?\d+[\-–]?\d*)\)?"
@@ -91,6 +91,7 @@ def upload_pdf():
     1. Genel durumu 1-2 cümle ile özetle.
     2. Referans dışı değerleri listele (eğer varsa).
     3. Her referans dışı değer için kısa ve basit öneriler ver.
+    4. Referans dışı değer yoksa böyle devam etmesi için önerilerde bulun.
     
 
     Rapor metni:
@@ -116,7 +117,7 @@ def upload_pdf():
     if referans_disi:
         bot_reply += "\n\n⚠️ Referans dışı değerler bulundu:\n- " + "\n- ".join(referans_disi)
     else:
-        bot_reply += "\n✅ Tüm değerler referans aralıklarında."
+        bot_reply += "\n✅ Önemli değerler referans aralıklarında."
 
     bot_reply += f"\n\n AI Önerisi:\n{ai_reply}"
 
@@ -243,9 +244,6 @@ def profile():
 
         return jsonify({"message": "Profil güncellendi"})
 
-# -----------------------
-# Chat
-# -----------------------
 @app.route("/chat", methods=["POST"])
 def chat():
     auth_header = request.headers.get("Authorization", "")
@@ -272,22 +270,10 @@ def chat():
     chat_history.setdefault(username, []).append({"sender": "user", "text": user_message})
     waiting_for_bot[username] = True
 
-    # -------------------
-    # Kullanıcı profil bilgilerini çekelim
-    # -------------------
-    cursor.execute(
-        "SELECT age, height, weight, chronic FROM users WHERE username=%s",
-        (username,)
-    )
+    # Profil bilgileri ve ekstra info
+    cursor.execute("SELECT age, height, weight, chronic FROM users WHERE username=%s", (username,))
     row = cursor.fetchone()
-    profile_info = {
-        "age": row[0],
-        "height": row[1],
-        "weight": row[2],
-        "chronic": row[3]
-    } if row else {}
-
-    # BMI hesaplama ve ekstra bilgi
+    profile_info = {"age": row[0], "height": row[1], "weight": row[2], "chronic": row[3]} if row else {}
     extra_info = ""
     if profile_info.get("height") and profile_info.get("weight"):
         try:
@@ -301,15 +287,12 @@ def chat():
                 extra_info += "Kullanıcı zayıf. "
         except:
             pass
-
     if profile_info.get("chronic"):
         extra_info += f"Kullanıcının kronik hastalıkları: {profile_info['chronic']}. "
 
-    # -------------------
-    # Danger prompt kontrolü
-    # -------------------
+    # Danger kontrolü
     danger_words = [
-        "göğüs ağrısı", "çarpıntı", "nefes darlığı", "bayılma", "hipotansiyon", 
+        "göğüs ağrısı", "çarpıntı", "nefes darlığı", "bayılma", "hipotansiyon",
         "kalp krizi", "kalp durması", "nabız düşüklüğü", "nabız yükselmesi",
         "felç", "konuşamıyorum", "baş dönmesi", "nöbet", "astım krizi",
         "şiddetli karın ağrısı", "kusma", "kan kusmak", "şiddetli kanama",
@@ -324,22 +307,26 @@ def chat():
     # -------------------
     # Normal sağlık önerisi promptu
     # -------------------
+    history_text = ""
+    for m in chat_history.get(username, [])[-10:]:
+        history_text += f"{m['sender'].capitalize()}: {m['text']}\n"
+
     prompt = f"""
-    Sen bir genel sağlık asistanısın. Kullanıcıya güvenli ve evde uygulanabilir tavsiyeler ver.
-    Sadece beslenme, yaşam tarzı ve basit çözümler öner. İlaç önerme.
-    
-    Kullanıcı profili: {extra_info if extra_info else "Özel bilgi yok."}
-    Kullanıcının mesajı: {user_message}
-    Yanıtın kısa ve öz (2-3 cümle) olmalı.
-    """
+Sen bir genel sağlık asistanısın. Kullanıcıya güvenli ve evde uygulanabilir tavsiyeler ver.
+Sadece beslenme, yaşam tarzı ve basit çözümler öner. İlaç önerme.
+
+Konuşma geçmişi:
+{history_text if history_text else 'Yok.'}
+
+Kullanıcı profili: {extra_info if extra_info else "Özel bilgi yok."}
+Kullanıcının mesajı: {user_message}
+Yanıtın kısa ve öz (2-3 cümle) olmalı.
+"""
 
     try:
         response = requests.post(
             API_URL,
-            headers={
-                "Content-Type": "application/json",
-                "X-goog-api-key": API_KEY
-            },
+            headers={"Content-Type": "application/json", "X-goog-api-key": API_KEY},
             json={"contents": [{"parts": [{"text": prompt}]}]}
         )
         response.raise_for_status()
@@ -349,10 +336,13 @@ def chat():
         print("API Hatası:", e)
 
     bot_reply += normal_reply
-    chat_history[username].append({"sender": "bot", "text": bot_reply})
+    chat_history.setdefault(username, []).append({"sender": "bot", "text": bot_reply})
     waiting_for_bot[username] = False
 
     return jsonify({"reply": bot_reply})
+
+
+
 
 
 # -----------------------
