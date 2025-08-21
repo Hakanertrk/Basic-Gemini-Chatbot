@@ -113,11 +113,99 @@ body {
   background-color: #0056b3;
   transform: scale(1.05);
 }
+/* -------------------- Appoitments area -------------------- */
+
+.chat-container {
+  display: flex;
+  height: calc(100vh - 100px); /* başlık vs için */
+  gap: 20px;
+  padding: 10px;
+}
+
+/* Randevu Paneli */
+.appointment-panel {
+  width: 300px;
+  height: 400px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 15px;
+  padding-top: 20px;
+  margin-top: 100px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+.appointment-panel h3 {
+  margin-bottom: 10px;
+  text-align: center;
+  color: #333;
+}
+
+.appt-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+  margin-bottom: 10px;
+}
+
+.appt-item {
+  list-style: none;
+  padding: 8px 12px;
+  margin-bottom: 5px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.appt-input {
+  
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  margin-bottom: 10px;
+}
+
+.appt-button {
+  padding: 8px 12px;
+  background-color: #4caf50;
+  color: white;
+  
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.appt-delete-button {
+  padding: 6px 12px;
+  background-color: #f44336;
+  color: white;
+  margin-left:  50px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.appt-delete-button:hover {
+  background-color: #d32f2f;
+}
+
+.appt-button:hover {
+  background-color: #45a049;
+}
+
+/* ChatBox yanına tam oturması için */
+.chatbox {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
 
 /* -------------------- Chat Box -------------------- */
 /* Chatbox şeffaf veya hafif opak */
 .chatbox {
   display: flex;
+  margin-top: 20px;
   flex-direction: column;
   width: 100%;
   max-width: 800px;
@@ -193,8 +281,9 @@ button {
   color: white;
   border: none;
   border-radius: 25px;
-  padding: 10px 20px;
+  padding: 5px 20px;
   cursor: pointer;
+  align-items: center;
   font-size: 16px;
   font-weight: bold;
   transition: all 0.3s ease;

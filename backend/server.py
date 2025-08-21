@@ -341,6 +341,96 @@ Yanıtın kısa ve öz (2-3 cümle) olmalı.
 
     return jsonify({"reply": bot_reply})
 
+# -----------------------
+# Appointments
+# -----------------------
+
+
+# -------------------
+# GET ve POST: Randevu listeleme ve ekleme
+# -------------------
+@app.route("/appointments", methods=["GET", "POST"])
+def appointments():
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Token eksik"}), 401
+
+    token = auth_header.split(" ")[1]
+    try:
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        username = decoded["username"]
+    except:
+        return jsonify({"error": "Geçersiz token"}), 401
+
+    # GET: Kullanıcının randevularını listele
+    if request.method == "GET":
+        cursor.execute(
+            "SELECT id, title, datetime FROM appointments WHERE username=%s ORDER BY datetime",
+            (username,)
+        )
+        rows = cursor.fetchall()
+        appointments_list = [
+            {"id": r[0], "title": r[1], "datetime": r[2].isoformat()} for r in rows
+        ]
+        return jsonify(appointments_list)  # Direkt array döndürüyoruz
+
+    # POST: Yeni randevu ekle
+    if request.method == "POST":
+        data = request.json
+        title = data.get("title", "").strip()
+        dt_str = data.get("datetime", "").strip()
+
+        if not title or not dt_str:
+            return jsonify({"error": "Başlık ve tarih gereklidir"}), 400
+
+        try:
+            dt = datetime.datetime.fromisoformat(dt_str)
+        except ValueError:
+            return jsonify({"error": "Geçersiz tarih formatı"}), 400
+
+        cursor.execute(
+            "INSERT INTO appointments (username, title, datetime) VALUES (%s, %s, %s) RETURNING id",
+            (username, title, dt)
+        )
+        appointment_id = cursor.fetchone()[0]
+        conn.commit()
+
+        return jsonify({
+            "id": appointment_id,
+            "title": title,
+            "datetime": dt.isoformat(),
+            "message": "Randevu eklendi"
+        }) 
+
+# -------------------
+# DELETE: Randevu silme
+# -------------------
+@app.route("/appointments/<int:appt_id>", methods=["DELETE"])
+def delete_appointment(appt_id):
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Token eksik"}), 401
+
+    token = auth_header.split(" ")[1]
+    try:
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        username = decoded["username"]
+    except:
+        return jsonify({"error": "Geçersiz token"}), 401
+
+    # Randevuyu kontrol et ve sil
+    cursor.execute(
+        "DELETE FROM appointments WHERE id=%s AND username=%s RETURNING id",
+        (appt_id, username)
+    )
+    deleted = cursor.fetchone()
+    conn.commit()
+
+    if deleted:
+        return jsonify({"message": "Randevu silindi"})
+    else:
+        return jsonify({"error": "Randevu bulunamadı"}), 404
+
 
 
 
