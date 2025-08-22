@@ -6,7 +6,7 @@ export default function ChatBox({ token }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState(null);
+  const [, setUploadedFile] = useState(null);
   const messagesEndRef = useRef(null);
 
   // -----------------------
@@ -143,7 +143,7 @@ export default function ChatBox({ token }) {
             handleFileUpload({ target: { files: e.dataTransfer.files } });
           }}
         >
-          <p>📄 Tahlil Sonuçlarınızı PDF formatında sürükleyin veya tıklayarak seçin</p>
+          <p>Tahlil Sonuçlarınızı PDF formatında sürükleyin veya tıklayarak seçin</p>
           <input
             type="file"
             accept="application/pdf"
@@ -155,11 +155,7 @@ export default function ChatBox({ token }) {
           <label htmlFor="pdfInput" className="pdf-label">
             Dosya Seç
           </label>
-          {uploadedFile && (
-            <div className="pdf-info">
-              Yüklenen: {uploadedFile.name} ({(uploadedFile.size / 1024).toFixed(1)} KB)
-            </div>
-          )}
+        
         </div>
       </div>
     </div>

@@ -43,6 +43,19 @@ def allowed_file(filename):
 
 @app.route("/upload_pdf", methods=["POST"])
 def upload_pdf():
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Token eksik"}), 401
+
+    token = auth_header.split(" ")[1]
+    try:
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        username = decoded["username"]
+    except ExpiredSignatureError:
+        return jsonify({"error": "Token süresi dolmuş"}), 401
+    except InvalidTokenError:
+        return jsonify({"error": "Geçersiz token"}), 401
+
     if 'pdf' not in request.files:
         return jsonify({"error": "PDF dosyası bulunamadı"}), 400
 
@@ -54,7 +67,6 @@ def upload_pdf():
         text += page.get_text()
 
     # --- 1. Genel özet ---
-    
     genel_ozet = f"Genel değerlendirme yapılıyor..."
 
     # --- 2. Regex ile test sonuçlarını yakala ---
@@ -92,7 +104,6 @@ def upload_pdf():
     2. Referans dışı değerleri listele (eğer varsa).
     3. Her referans dışı değer için kısa ve basit öneriler ver.
     4. Referans dışı değer yoksa böyle devam etmesi için önerilerde bulun.
-    
 
     Rapor metni:
     {text[:3000]}
@@ -121,7 +132,11 @@ def upload_pdf():
 
     bot_reply += f"\n\n AI Önerisi:\n{ai_reply}"
 
+    # --- 5. Chat geçmişine ekle ---
+    chat_history.setdefault(username, []).append({"sender": "bot", "text": f"[PDF Analizi]\n{bot_reply}"})
+
     return jsonify({"reply": bot_reply})
+
 
 # -----------------------
 # Register
@@ -280,7 +295,7 @@ def chat():
             height_m = float(profile_info["height"]) / 100
             bmi = float(profile_info["weight"]) / (height_m ** 2)
             if bmi >= 30:
-                extra_info += "Kullanıcının obezite durumu var. "
+                extra_info += "Kullanıcının obezite durumu var. "    
             elif bmi >= 25:
                 extra_info += "Kullanıcı fazla kilolu. "
             elif bmi < 18.5:
@@ -314,13 +329,20 @@ def chat():
     prompt = f"""
 Sen bir genel sağlık asistanısın. Kullanıcıya güvenli ve evde uygulanabilir tavsiyeler ver.
 Sadece beslenme, yaşam tarzı ve basit çözümler öner. İlaç önerme.
+Cevap verirken nazik, anlaşılır ve destekleyici ol. Gerektiğinde örnekler ver.
 
 Konuşma geçmişi:
 {history_text if history_text else 'Yok.'}
 
 Kullanıcı profili: {extra_info if extra_info else "Özel bilgi yok."}
 Kullanıcının mesajı: {user_message}
+
 Yanıtın kısa ve öz (2-3 cümle) olmalı.
+Cevap Sonunda, cevabı destekliyecek ekstra bir öneride bulunmak için sor ve kullanıcı onaylarsa yap.
+Cevaplarını gerekli yerlerde madde madde yap.
+Cevaplarını gerekli yerlerde yeni satıra başlat.
+Gerektiğinde kullanıcıya motivasyon verici ve pozitif ifadeler kullan.
+Her cevabın sonunda, kullanıcının kendine dikkat etmesi için basit bir hatırlatma ekle (örn. "Bol su içmeyi unutmayın.").
 """
 
     try:

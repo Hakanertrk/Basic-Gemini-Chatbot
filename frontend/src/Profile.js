@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import "./App.css"; // CSS dosyasını içe aktar
+import avatarImg from './avatar.jpg';
 
 export default function Profile({ token }) {
   const [userData, setUserData] = useState({
@@ -15,6 +16,7 @@ export default function Profile({ token }) {
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [popup, setPopup] = useState(false); // Popup state
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -42,7 +44,9 @@ export default function Profile({ token }) {
       await axios.post("http://127.0.0.1:5000/profile", userData, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setMessage("✅ Profil başarıyla güncellendi!");
+      
+      setPopup(true); // popup aç
+      setTimeout(() => setPopup(false), 3000); // 3 saniye sonra kaybol
     } catch (err) {
       setMessage("⚠️ Profil güncellenemedi.");
       console.error(err.response?.data || err.message);
@@ -52,7 +56,13 @@ export default function Profile({ token }) {
 
   return (
     <div className="profile-container">
-      <h2 className="profile-title">👤 Profil Bilgileri</h2>
+      {popup && <div className="profile-popup">Profil başarıyla kaydedildi!</div>} {/* Popup */}
+      
+      <div className="profile-avatar">
+        <img src={avatarImg} alt="Profil Avatarı" />
+      </div>
+      
+      <h2 className="profile-title">Profil Bilgileri</h2>
       <div className="profile-column">
         <div className="profile-field">
           <label>Ad:</label>

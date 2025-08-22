@@ -14,7 +14,18 @@ function App() {
   const [appointments, setAppointments] = useState([]);
   const [newAppt, setNewAppt] = useState("");
 
-  const screen = !token ? "login" : showProfile ? "profile" : "chat";
+  // Kullanıcı çıkış yaptığında profil ekranı sıfırlansın
+  useEffect(() => {
+    if (!token) {
+      setShowProfile(false);
+    }
+  }, [token]);
+
+  // Ekran belirleme
+  let screen = "login";
+  if (token) {
+    screen = showProfile ? "profile" : "chat";
+  }
 
   // Randevu listesini backend’den çek
   useEffect(() => {
@@ -33,17 +44,13 @@ function App() {
     }
   }, [token, screen]);
 
-  // Yeni randevu ekleme
   const addAppointment = async () => {
     if (!newAppt.trim()) return;
 
     try {
       const res = await axios.post(
         "http://127.0.0.1:5000/appointments",
-        {
-          title: newAppt,          // Backend’in beklediği key
-          datetime: newAppt        // input'tan gelen değer zaten string
-        },
+        { title: newAppt, datetime: newAppt },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -54,7 +61,6 @@ function App() {
     }
   };
 
-  // Randevu silme
   const deleteAppointment = async (id) => {
     try {
       await axios.delete(`http://127.0.0.1:5000/appointments/${id}`, {
@@ -68,13 +74,13 @@ function App() {
 
   return (
     <div className="app">
-      {/* Başlık */}
       <h1 className={`app-title ${screen === "login" ? "center-title" : "top-left-title"}`}>
         CHATDOC 🩺
       </h1>
       {screen === "login" && <h2 className="app-subtitle">Sağlığınız için AI.</h2>}
 
-      {!token ? (
+      {/* ---------------- Login/Register ekranı ---------------- */}
+      {screen === "login" && (
         <>
           {showRegister ? (
             <>
@@ -94,9 +100,11 @@ function App() {
             </>
           )}
         </>
-      ) : (
+      )}
+
+      {/* ---------------- Chat ve Profil ekranı ---------------- */}
+      {screen !== "login" && (
         <>
-          {/* Sağ üst köşe menü */}
           <div className="top-right-menu">
             <button onClick={() => setShowProfile(!showProfile)}>
               {showProfile ? "Chat" : "Profil"}
@@ -105,7 +113,6 @@ function App() {
               onClick={() => {
                 localStorage.removeItem("token");
                 setToken("");
-                setShowProfile(false);
               }}
             >
               Çıkış Yap
@@ -115,7 +122,7 @@ function App() {
           {showProfile ? (
             <Profile token={token} />
           ) : (
-            <div className="chat-container">
+            <div className="app-container">
               {/* Randevu Paneli */}
               <div className="appointment-panel">
                 <h3>📅 Randevular</h3>
@@ -123,8 +130,10 @@ function App() {
                   {appointments.map((a) => (
                     <li key={a.id} className="appt-item">
                       {new Date(a.datetime).toLocaleString()}
-                      <button onClick={() => deleteAppointment(a.id)} className="appt-delete-button" >
-                        
+                      <button
+                        onClick={() => deleteAppointment(a.id)}
+                        className="appt-delete-button"
+                      >
                         Sil
                       </button>
                     </li>
